@@ -1555,7 +1555,7 @@ c-----------------------------------------------------------------------
       include 'TOTAL'
       COMMON /SCRNS/ WORK(LCTMP1)
 
-      integer*8 ntot,ntotp,ntotv
+      integer*8 ntot,ntot2,ntotp,ntotv
 
       nxyz  = nx1*ny1*nz1
       nel   = nelv
