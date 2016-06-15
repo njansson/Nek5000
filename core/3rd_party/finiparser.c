@@ -89,10 +89,11 @@ void finiparser_getDictEntries(int *n)
 
 void finiparser_getPair(char *key,char *val,int *id,int *ifnd,int key_len, int val_len)
 {
-    *ifnd = 0;
     int i;
     int real_key_len = 0;
     int real_val_len = 0;
+
+    *ifnd = 0;
 
     if (*id > dic->n) return;
     for (i=0; i<key_len; i++) key[i] = ' ';
