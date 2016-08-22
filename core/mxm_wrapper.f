@@ -12,7 +12,7 @@ c
       integer aligned
       integer K10_mxm
 
-      integer(8) tt
+      integer*8 tt
 
 #ifndef NOTIMER
       if (isclld.eq.0) then
