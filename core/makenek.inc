@@ -228,6 +228,12 @@ case $F77comp in
                ;;
   *open*)       P="-r8 -cpp -fno-second-underscore"
                ;;
+  *f77*)      
+	       case "$OSTYPE" in
+	         irix*) P="-r8 -cpp"
+		        ;;
+               esac	
+               ;;
   *)  echo "ERROR: Unable to detect compiler!"
       echo "        - don't know how to promote datatype REAL to 8 bytes"
       echo "        - don't know how to invoke the C pre-processor (CPP) before compilation"
@@ -246,6 +252,10 @@ else
   # default
   IFMPI=true
   PPLIST="${PPLIST} MPI"
+
+  if [[ "$OSTYPE" == irix* ]]; then
+     USR_LFLAGS="${USR_LFLAGS} -lmpi"
+  fi
 fi
 export IFMPI
 
