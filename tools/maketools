@@ -103,6 +103,12 @@ case $F77 in
   *ftn*)       R8="-r8"
                BIGMEM_FLAG="-mcmodel=medium"
                ;;
+  *f77*)
+               case "$OSTYPE" in
+                   irix*) R8="-r8"
+                       ;;
+               esac
+               ;;
   *)           echo "Error: Unable to detect compiler!"
                exit 1
                ;;
