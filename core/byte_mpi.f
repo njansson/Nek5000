@@ -86,7 +86,9 @@ C--------------------------------------------------------------------------
 
       if(nid.eq.pid0 .or. nid.eq.pid0r) then
         iout = 4*icount ! icount is in 4-byte words
+#ifndef __sgi
         if(iorank.ge.0 .and. nid.ne.iorank) iout = 0
+#endif
 c        write(*,*) 'byte_write', nid, iout/4
 #ifdef MPIIO_NOCOL
         call MPI_file_write(mpi_fh,buf,iout,MPI_BYTE,
