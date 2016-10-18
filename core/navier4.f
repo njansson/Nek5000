@@ -825,9 +825,12 @@ c
 
       logical ifwt,ifvec
 
-      integer of
-      save of
-      data of /1/
+      integer of,ofprs,ofvx,ofvy,ofvz
+      save ofpr,ofvx,ofvy,ofvz
+      data ofpr /1/
+      data ofvx  /1/
+      data ofvy  /1/
+      data ofvz  /1/
 
 
       call chcopy(cname,name,4)
@@ -856,6 +859,18 @@ c
          ifwt  = .true.
          ifvec = .false.
 
+         if (cname.eq.'PRES') then
+            of = ofpr
+         else if (cname.eq.'VELX') then
+            of = ofvx
+         else if (cname.eq.'VELY') then
+            of = ofvy
+         else if (cname.eq.'VELZ') then
+            of = ofvz
+         else
+            of = 1
+         endif
+
          call project1
      $       (r,n,approx,napprox,h1,h2,vmk,vml,of,ifwt,ifvec,name6)
 
@@ -864,6 +879,15 @@ c
          call project2
      $       (u,n,approx,napprox,h1,h2,vmk,vml,of,ifwt,ifvec,name6)
 
+         if (cname.eq.'PRES') then
+            ofpr = of
+         else if (cname.eq.'VELX') then
+            ofvx = of
+         else if (cname.eq.'VELY') then
+            ofvy = of
+         else if (cname.eq.'VELZ') then
+            ofvz = of
+         endif
       endif
 
       return
