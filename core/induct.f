@@ -317,6 +317,10 @@ c
       common /orthbi/ nprv(2)
       logical ifprjp
 
+      integer iof
+      save iof
+      data iof /1/
+
       ifprjp=.false.    ! Project out previous pressure solutions?
       istart=param(95)  
       if (istep.ge.istart.and.istart.ne.0) ifprjp=.true.
@@ -342,15 +346,15 @@ c
       call add2col2(dp,bm2,usrdiv,ntot2) ! User-defined divergence.
 
       call ortho   (dp)
-
+      
       i = 1 + ifield/ifldmhd
-      if (ifprjp)   call setrhsp  (dp,h1,h2,h2inv,pset(1,i),nprv(i))
+      if (ifprjp)   call setrhsp  (dp,h1,h2,h2inv,pset(1,i),nprv(i),iof)
                     scaledt = dt/bd(1)
                     scaledi = 1./scaledt
                     call cmult(dp,scaledt,ntot2)        ! scale for tol
                     call esolver  (dp,h1,h2,h2inv,intype)
                     call cmult(dp,scaledi,ntot2)
-      if (ifprjp)   call gensolnp (dp,h1,h2,h2inv,pset(1,i),nprv(i))
+      if (ifprjp)   call gensolnp (dp,h1,h2,h2inv,pset(1,i),nprv(i),iof)
 
       call add2(up,dp,ntot2)
 
@@ -1149,7 +1153,7 @@ c
 c      return
 c      end
 c--------------------------------------------------------------------
-      subroutine setrhsp(p,h1,h2,h2inv,pset,nprev)
+      subroutine setrhsp(p,h1,h2,h2inv,pset,nprev,iof)
 C
 C     Project soln onto best fit in the "E" norm.
 C
@@ -1169,6 +1173,8 @@ C
       common /orthox/ pbar(ltot2),pnew(ltot2)
       common /orthos/ alpha(mxprev),work(mxprev)
 
+      integer iof
+
       if (nprev.eq.0) return
 
 c     Diag to see how much reduction in the residual is attained.
@@ -1183,13 +1189,15 @@ c     Diag to see how much reduction in the residual is attained.
       CALL UPDRHSE(P,H1,H2,H2INV,ierr) ! update rhs's if E-matrix has changed
 c     if (ierr.eq.1) Nprev=0           ! Doesn't happen w/ new formulation
 
-      do i=1,nprev  ! Perform Gram-Schmidt for previous soln's.
+      do ii = 0, nprev - 1
+         i = mod1(iof + ii, nprev)
          alpha(i) = vlsc2(p,pset(1,i),ntot2)
       enddo
       call gop(alpha,work,'+  ',nprev)
 
       call rzero(pbar,ntot2)
-      do i=1,nprev
+      do ii = 0, nprev - 1
+         i = mod1(iof + ii, nprev)
          call add2s2(pbar,pset(1,i),alpha(i),ntot2)
       enddo
 C
@@ -1202,7 +1210,7 @@ c    ................................................................
       if (alpha2.gt.0) then
          alpha2 = sqrt(alpha2/volvm2)
          ratio  = alpha1/alpha2
-         n10=min(10,nprev)
+         n10=min(10,mod1(iof - 1, nprev))
 c         if (nio.eq.0) write(6,11) istep,nprev,(alpha(i),i=1,n10)
 c         if (nio.eq.0) write(6,12) istep,nprev,alpha1,alpha2,ratio
    11    format(2i5,' alpha:',1p10e12.4)
@@ -1213,7 +1221,7 @@ c    ................................................................
       return
       end
 c-----------------------------------------------------------------------
-      subroutine gensolnp(p,h1,h2,h2inv,pset,nprev)
+      subroutine gensolnp(p,h1,h2,h2inv,pset,nprev,iof)
 C
 C     Reconstruct the solution to the original problem by adding back
 C     the previous solutions
@@ -1231,34 +1239,29 @@ C
       common /orthox/ pbar(ltot2),pnew(ltot2)
       common /orthos/ alpha(mxprev),work(mxprev)
 
+      integer iof 
+
       mprev=param(93)
       mprev=min(mprev,mxprev)
 
       ntot2=nx2*ny2*nz2*nelv
 
-      if (nprev.lt.mprev) then
-         nprev = nprev+1
-         call copy  (pset(1,nprev),p,ntot2)        ! Save current solution
-         call add2  (p,pbar,ntot2)                 ! Reconstruct solution.
-         call econjp(pset,nprev,h1,h2,h2inv,ierr)  ! Orthonormalize set
-
-         if (ierr.eq.1) then
-          nprev = 1
-          call copy  (pset(1,nprev),p,ntot2)       ! Save current solution
-          call econjp(pset,nprev,h1,h2,h2inv,ierr) !   and orthonormalize.
-        endif
-
-      else                                         !          (uses pnew).
+      nprev = min(nprev+1,mprev)
+      call copy  (pset(1,iof),p,ntot2) ! Save current solution
+      call add2  (p,pbar,ntot2) ! Reconstruct solution.
+      call econjp(pset,iof,h1,h2,h2inv,iof,ierr) ! Orthonormalize set
+      
+      if (ierr.eq.1) then
          nprev = 1
-         call add2  (p,pbar,ntot2)                 ! Reconstruct solution.
-         call copy  (pset(1,nprev),p,ntot2)        ! Save current solution
-         call econjp(pset,nprev,h1,h2,h2inv,ierr)  !   and orthonormalize.
+         call copy  (pset(1,iof),p,ntot2) ! Save current solution
+         call econjp(pset,nprev,h1,h2,h2inv,iof,ierr) !   and orthonormalize.
       endif
-
+      
+      iof = mod1(iof + 1, mprev)
       return
       end
 c-----------------------------------------------------------------------
-      subroutine econjp(pset,nprev,h1,h2,h2inv,ierr)
+      subroutine econjp(pset,nprev,h1,h2,h2inv,iof,ierr)
 
 c     Orthogonalize the soln wrt previous soln's for which we already
 c     know the soln.
@@ -1276,10 +1279,11 @@ c     know the soln.
       common /orthox/ pbar(ltot2),pnew(ltot2)
       common /orthos/ alpha(mxprev),work(mxprev)
 
+      integer iof
+
       ierr  = 0
 
       ntot2=nx2*ny2*nz2*nelv
-
 C
 C     Gram Schmidt, w re-orthogonalization
 C
@@ -1288,18 +1292,20 @@ c     if (abs(param(105)).eq.2) npass=2
       do ipass=1,npass
 
          intetype=1
-         call cdabdtp(pnew,pset(1,nprev),h1,h2,h2inv,intetype)
-         alphad = glsc2(pnew,pset(1,nprev),ntot2) ! compute part of the norm
+         call cdabdtp(pnew,pset(1,iof),h1,h2,h2inv,intetype)
+         alphad = glsc2(pnew,pset(1,iof),ntot2) ! compute part of the norm
 
          nprev1 = nprev-1
-         do i=1,nprev1   !   Gram-Schmidt
+         do ii=0,nprev1-1   !   Gram-Schmidt
+            i = mod1(iof + ii, nprev1)
             alpha(i) = vlsc2(pnew,pset(1,i),ntot2)
          enddo
-         if (nprev1.gt.0) call gop(alpha,work,'+  ',nprev1)
+         if (nprev1.gt.0) call gop(alpha,work,'+  ',mod1(iof - 1,nprev)) 
 
-         do i=1,nprev1
+         do ii = 0, nprev1 - 1
+            i = mod1(iof + ii, nprev1)
             alpham = -alpha(i)
-            call add2s2(pset(1,nprev),pset(1,i),alpham,ntot2)
+            call add2s2(pset(1,iof),pset(1,i),alpham,ntot2)
             alphad = alphad - alpha(i)**2
          enddo
       enddo
@@ -1312,7 +1318,7 @@ C
          return
       endif
       alphad = 1./sqrt(alphad)
-      call cmult(pset(1,nprev),alphad,ntot2)
+      call cmult(pset(1,iof),alphad,ntot2)
 
       return
       end
